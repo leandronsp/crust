@@ -1,16 +1,19 @@
+mod router;
+
 use std::{
     fs,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
-    collections::HashMap,
+    collections::HashMap, rc::Rc,
 };
 
 #[derive(Debug)]
-struct Request {
+pub struct Request {
     verb: String,
     path: String,
     headers: HashMap<String, String>,
     cookies: HashMap<String, String>,
+    params: HashMap<String, String>,
     body: String,
 }
 
@@ -21,6 +24,7 @@ impl Request {
             path: String::new(),
             headers: HashMap::new(),
             cookies: HashMap::new(),
+            params: HashMap::new(),
             body: String::new(),
         }
     }
@@ -39,14 +43,17 @@ fn main() {
 }
 
 fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    let http_request: Vec<_> = buf_reader
+    let mut buf_reader = BufReader::new(&mut stream);
+
+    let http_request: Vec<_> = 
+        buf_reader
+        .by_ref()
         .lines()
         .map(|result| result.unwrap())
         .take_while(|line| !line.is_empty())
         .collect();
 
-    let request = parse_request(http_request);
+    let request = parse_request(http_request, buf_reader);
 
     println!("{}", "\n\n\n");
     println!("{:#?}", request);
@@ -55,46 +62,26 @@ fn handle_connection(mut stream: TcpStream) {
     stream.write_all(response.as_bytes()).unwrap();
 }
 
-fn handle_index(_request: Request) -> String {
-    let mut response = String::new();
-
-    let contents = fs::read_to_string("index.html").unwrap();
-
-    response.push_str("HTTP/1.1 200 OK\r\n");
-    response.push_str("Content-Type: text/html\r\n");
-    response.push_str("\r\n");
-    response.push_str(&contents);
-
-    response
-}
-
-fn handle_404(_request: Request) -> String {
-    let mut response = String::new();
-
-    let contents = fs::read_to_string("404.html").unwrap();
-
-    response.push_str("HTTP/1.1 404 Not Found\r\n");
-    response.push_str("Content-Type: text/html\r\n");
-    response.push_str("\r\n");
-    response.push_str(&contents);
-
-    response
-}
-
 fn handle_request(request: Request) -> String {
     match (request.verb.as_str(), request.path.as_str()) {
-        ("GET", "/") => handle_index(request),
-        _ =>            handle_404(request),
+        ("GET", "/") => router::get::index(request),
+        ("GET", "/login") => router::get::login(request),
+        ("POST", "/login") => router::post::login(request),
+        ("POST", "/logout") => router::post::logout(request),
+        _ => router::get::not_found(),
     }
 }
 
-fn parse_request(http_request: Vec<String>) -> Request {
+fn parse_request(http_request: Vec<String>, buf_reader: BufReader<&mut TcpStream>) -> Request {
     let mut request = Request::new();
     let mut iterator = http_request.iter();
     let mut headline_split = iterator.next().unwrap().split(' ');
 
     let (verb, path) = (headline_split.next().unwrap(), 
                         headline_split.next().unwrap());
+    
+    request.verb = verb.to_string();
+    request.path = path.to_string();
 
     println!("{} {}", verb, path);
     
@@ -118,9 +105,23 @@ fn parse_request(http_request: Vec<String>) -> Request {
             request.headers.insert(key.to_string(), value.to_string());
         }
     }
-    
-    request.verb = verb.to_string();
-    request.path = path.to_string();
+
+    // Parse Body
+    if let Some(content_length) = request.headers.get("Content-Length") {
+        buf_reader
+            .take(content_length.parse::<u64>().unwrap())
+            .read_to_string(&mut request.body)
+            .unwrap();
+
+        if !request.body.is_empty() && request.headers.get("Content-Type").unwrap() == "application/x-www-form-urlencoded" {
+            let body: Vec<_> = request.body.split("&").collect();
+
+            for pair in body {
+                let (key, value) = pair.split_once("=").unwrap();
+                request.params.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
 
     request
 }
