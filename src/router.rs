@@ -44,7 +44,9 @@ pub mod get {
         let mut response = String::new();
         
         if let Some(cookie) = request.cookies.get("username") {
-            if let Some(user) = DATABASE.lock().unwrap().iter().find(|user| user.username == *cookie) {
+            let store = DATABASE.lock().unwrap();
+
+            if let Some(user) = store.iter().find(|user| user.username == *cookie) {
                 let contents = fs::read_to_string("index.html").unwrap();
                 let contents = contents.replace("{{username}}", user.username.as_str());
 
