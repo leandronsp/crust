@@ -1,11 +1,44 @@
 mod router;
 
 use std::{
-    fs,
+    collections::HashMap,
     io::{prelude::*, BufReader},
     net::{TcpListener, TcpStream},
-    collections::HashMap, rc::Rc,
 };
+
+pub struct User {
+    username: String,
+    password: String,
+}
+
+pub struct UsersRepository {
+    users: Vec<User>,
+}
+
+impl UsersRepository {
+    fn new() -> Self {
+        Self { users: Vec::new() }
+    }
+
+    fn insert(&mut self, username: String, password: String) {
+        let user = User { username, password };
+        self.users.push(user);
+    }
+
+    fn find(&self, username: &str) -> Option<&User> {
+        self.users
+            .iter()
+            .find(|user| user.username == username)
+            .map(|user| user.clone())
+    }
+
+    fn find_by_credentials(&self, username: &str, password: &str) -> Option<&User> {
+        self.users
+            .iter()
+            .find(|user| user.username == username && user.password == password)
+            .map(|user| user.clone())
+    }
+}
 
 #[derive(Debug)]
 pub struct Request {
@@ -45,8 +78,7 @@ fn main() {
 fn handle_connection(mut stream: TcpStream) {
     let mut buf_reader = BufReader::new(&mut stream);
 
-    let http_request: Vec<_> = 
-        buf_reader
+    let http_request: Vec<_> = buf_reader
         .by_ref()
         .lines()
         .map(|result| result.unwrap())
@@ -66,7 +98,9 @@ fn handle_request(request: Request) -> String {
     match (request.verb.as_str(), request.path.as_str()) {
         ("GET", "/") => router::get::index(request),
         ("GET", "/login") => router::get::login(request),
+        ("GET", "/signup") => router::get::signup(request),
         ("POST", "/login") => router::post::login(request),
+        ("POST", "/signup") => router::post::signup(request),
         ("POST", "/logout") => router::post::logout(request),
         _ => router::get::not_found(),
     }
@@ -77,14 +111,16 @@ fn parse_request(http_request: Vec<String>, buf_reader: BufReader<&mut TcpStream
     let mut iterator = http_request.iter();
     let mut headline_split = iterator.next().unwrap().split(' ');
 
-    let (verb, path) = (headline_split.next().unwrap(), 
-                        headline_split.next().unwrap());
-    
+    let (verb, path) = (
+        headline_split.next().unwrap(),
+        headline_split.next().unwrap(),
+    );
+
     request.verb = verb.to_string();
     request.path = path.to_string();
 
     println!("{} {}", verb, path);
-    
+
     while let Some(line) = iterator.next() {
         println!("{}", line);
 
@@ -113,7 +149,9 @@ fn parse_request(http_request: Vec<String>, buf_reader: BufReader<&mut TcpStream
             .read_to_string(&mut request.body)
             .unwrap();
 
-        if !request.body.is_empty() && request.headers.get("Content-Type").unwrap() == "application/x-www-form-urlencoded" {
+        if !request.body.is_empty()
+            && request.headers.get("Content-Type").unwrap() == "application/x-www-form-urlencoded"
+        {
             let body: Vec<_> = request.body.split("&").collect();
 
             for pair in body {
