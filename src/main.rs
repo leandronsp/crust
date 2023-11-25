@@ -6,40 +6,6 @@ use std::{
     net::{TcpListener, TcpStream},
 };
 
-pub struct User {
-    username: String,
-    password: String,
-}
-
-pub struct UsersRepository {
-    users: Vec<User>,
-}
-
-impl UsersRepository {
-    fn new() -> Self {
-        Self { users: Vec::new() }
-    }
-
-    fn insert(&mut self, username: String, password: String) {
-        let user = User { username, password };
-        self.users.push(user);
-    }
-
-    fn find(&self, username: &str) -> Option<&User> {
-        self.users
-            .iter()
-            .find(|user| user.username == username)
-            .map(|user| user.clone())
-    }
-
-    fn find_by_credentials(&self, username: &str, password: &str) -> Option<&User> {
-        self.users
-            .iter()
-            .find(|user| user.username == username && user.password == password)
-            .map(|user| user.clone())
-    }
-}
-
 #[derive(Debug)]
 pub struct Request {
     verb: String,

@@ -1,7 +1,18 @@
+use std::sync::Mutex;
+
+pub struct User {
+    username: String,
+    password: String,
+}
+
+static DATABASE: Mutex<Vec<User>> = Mutex::new(Vec::new());
+
 pub mod get {
     use std::fs;
 
-    use crate::{Request, UsersRepository};
+    use crate::Request;
+
+    use super::DATABASE;
 
     pub fn login(_request: Request) -> String {
         let mut response = String::new();
@@ -33,9 +44,7 @@ pub mod get {
         let mut response = String::new();
         
         if let Some(cookie) = request.cookies.get("username") {
-            let repository = UsersRepository::new();
-
-            if let Some(user) = repository.find(cookie) {
+            if let Some(user) = DATABASE.lock().unwrap().iter().find(|user| user.username == *cookie) {
                 let contents = fs::read_to_string("index.html").unwrap();
                 let contents = contents.replace("{{username}}", user.username.as_str());
 
@@ -70,7 +79,9 @@ pub mod get {
 }
 
 pub mod post {
-    use crate::{Request, UsersRepository};
+    use crate::Request;
+
+    use super::{DATABASE, User};
 
     pub fn login(request: Request) -> String {
         let mut response = String::new();
@@ -78,8 +89,8 @@ pub mod post {
         let username = request.params.get("username").unwrap();
         let password = request.params.get("password").unwrap();
 
-        let repository = UsersRepository::new();
-        let user = repository.find_by_credentials(username, password);
+        let store = DATABASE.lock().unwrap();
+        let user = store.iter().find(|user| user.username == *username && user.password == *password);
 
         match user {
             Some(user) => {
@@ -104,8 +115,12 @@ pub mod post {
         let username = request.params.get("username").unwrap();
         let password = request.params.get("password").unwrap();
 
-        let mut repository = UsersRepository::new();
-        repository.insert(username.clone(), password.clone());
+        let mut store = DATABASE.lock().unwrap();
+
+        store.push(User {
+            username: username.to_string(),
+            password: password.to_string(),
+        });
 
         response.push_str("HTTP/1.1 301\r\n");
         response.push_str("Location: /login\r\n");
