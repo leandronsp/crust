@@ -18,7 +18,11 @@ Rust
 ## Running
 
 ```bash
-cargo run
+$ cargo run
+
+# Or using cargo watch
+$ cargo install cargo-watch
+$ cargo watch -x run
 ```
 
 Enjoy.

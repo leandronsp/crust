@@ -1,11 +1,29 @@
 use std::sync::Mutex;
 
+static DATABASE: Mutex<Vec<User>> = Mutex::new(Vec::new());
+
 pub struct User {
     username: String,
     password: String,
 }
 
-static DATABASE: Mutex<Vec<User>> = Mutex::new(Vec::new());
+impl User {
+    pub fn new(username: &str, password: &str) -> Self {
+        Self {
+            username: username.to_string(),
+            password: password.to_string(),
+        }
+    }
+
+    pub fn save(&self) {
+        let mut store = DATABASE.lock().unwrap();
+
+        store.push(User {
+            username: self.username.clone(),
+            password: self.password.clone(),
+        });
+    }
+}
 
 pub mod get {
     use std::fs;
@@ -88,25 +106,17 @@ pub mod post {
     pub fn login(request: Request) -> String {
         let mut response = String::new();
 
-        let username = request.params.get("username").unwrap();
-        let password = request.params.get("password").unwrap();
+        let user = User::new(
+            request.params.get("username").unwrap(),
+            request.params.get("password").unwrap(),
+        );
 
-        let store = DATABASE.lock().unwrap();
-        let user = store.iter().find(|user| user.username == *username && user.password == *password);
+        user.save();
 
-        match user {
-            Some(user) => {
-                response.push_str("HTTP/1.1 301\r\n");
-                response.push_str("Location: /\r\n");
-                response.push_str(format!("Set-Cookie: username={}\r\n", user.username).as_str());
-                response.push_str("\r\n");
-            },
-            None => {
-                response.push_str("HTTP/1.1 301\r\n");
-                response.push_str("Location: /login\r\n");
-                response.push_str("\r\n");
-            }
-        }
+        response.push_str("HTTP/1.1 301\r\n");
+        response.push_str("Location: /\r\n");
+        response.push_str(format!("Set-Cookie: username={}\r\n", user.username).as_str());
+        response.push_str("\r\n");
 
         response
     }
