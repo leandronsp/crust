@@ -1,4 +1,5 @@
 mod router;
+pub(crate) mod persistence;
 
 use std::{
     collections::HashMap,
