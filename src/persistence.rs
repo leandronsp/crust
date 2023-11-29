@@ -1,7 +1,8 @@
 use std::fs;
 use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct User {
     pub username: String,
     pub password: String,
@@ -30,6 +31,7 @@ impl UsersRepository {
 
     pub fn save(&mut self, user: User) {
         self.store.push(user);
+        self.persist_to_disk();
     }
 
     pub fn find_by_username(&self, username: &str) -> Option<User> {
@@ -59,6 +61,11 @@ impl UsersRepository {
         let users: Vec<User> = serde_json::from_str(&data).unwrap();
 
         self.store.extend(users);
+    }
+
+    pub fn persist_to_disk(&self) {
+        let data = serde_json::to_string(&self.store).unwrap();
+        fs::write("database.json", data).unwrap();
     }
 }
 
@@ -90,6 +97,16 @@ mod tests {
         };
 
         repository.save(user);
+
+        let user = repository.find_by_credentials("leandro", "password").unwrap();
+
+        assert_eq!(user.username, "leandro");
+        assert_eq!(user.password, "password");
+    }
+
+    #[test]
+    fn user_find_by_credentials_default() {
+        let repository = UsersRepository::new();
 
         let user = repository.find_by_credentials("leandro", "password").unwrap();
 
