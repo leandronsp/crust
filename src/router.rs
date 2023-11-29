@@ -2,7 +2,7 @@ pub mod get {
     use std::fs;
 
     use crate::Request;
-    use crate::persistence::User;
+    use crate::persistence::{UsersRepository};
 
     pub fn login(_request: Request) -> String {
         let mut response = String::new();
@@ -34,7 +34,8 @@ pub mod get {
         let mut response = String::new();
         
         if let Some(cookie) = request.cookies.get("username") {
-            let user = User::find_by_username(cookie);
+            let repository = UsersRepository::new();
+            let user = repository.find_by_username(cookie);
 
             match user {
                 Some(user) => {
@@ -82,7 +83,7 @@ pub mod get {
 pub mod post {
     use std::fs;
     use crate::Request;
-    use crate::persistence::User;
+    use crate::persistence::{User, UsersRepository};
 
     pub fn login(request: Request) -> String {
         let mut response = String::new();
@@ -90,7 +91,9 @@ pub mod post {
         let username = request.params.get("username").unwrap();
         let password = request.params.get("password").unwrap();
 
-        let user = User::find_by_credentials(username, password);
+        let repository = UsersRepository::new();
+
+        let user = repository.find_by_credentials(username, password);
 
         match user {
             Some(user) => {
@@ -122,7 +125,8 @@ pub mod post {
             request.params.get("password").unwrap(),
         );
 
-        user.save();
+        let mut repository = UsersRepository::new();
+        repository.save(user);
 
         response.push_str("HTTP/1.1 301\r\n");
         response.push_str("Location: /login\r\n");

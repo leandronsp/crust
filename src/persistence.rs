@@ -1,7 +1,7 @@
-use std::sync::Mutex;
+use std::fs;
+use serde::Deserialize;
 
-pub static DATABASE: Mutex<Vec<User>> = Mutex::new(Vec::new());
-
+#[derive(Deserialize, Debug)]
 pub struct User {
     pub username: String,
     pub password: String,
@@ -14,21 +14,27 @@ impl User {
             password: password.to_string(),
         }
     }
+}
 
-    pub fn save(&self) {
-        let mut store = DATABASE.lock().unwrap();
+pub struct UsersRepository {
+    pub store: Vec<User>,
+}
 
-        store.push(User {
-            username: self.username.clone(),
-            password: self.password.clone(),
-        });
+impl UsersRepository {
+    pub fn new() -> Self {
+        let mut repository = Self { store: Vec::new() };
+        repository.load_from_disk();
+
+        repository
     }
 
-    pub fn find_by_username(username: &str) -> Option<User> {
-        let store = DATABASE.lock().unwrap();
+    pub fn save(&mut self, user: User) {
+        self.store.push(user);
+    }
 
+    pub fn find_by_username(&self, username: &str) -> Option<User> {
         // Full-table scan
-        store
+        self.store
             .iter()
             .find(|user| user.username == username)
             .map(|user| User {
@@ -37,17 +43,22 @@ impl User {
             })
     }
 
-    pub fn find_by_credentials(username: &str, password: &str) -> Option<User> {
-        let store = DATABASE.lock().unwrap();
-
+    pub fn find_by_credentials(&self, username: &str, password: &str) -> Option<User> {
         // Full-table scan
-        store
+        self.store
             .iter()
             .find(|user| user.username == username && user.password == password)
             .map(|user| User {
                 username: user.username.clone(),
                 password: user.password.clone(),
             })
+    }
+
+    pub fn load_from_disk(&mut self) {
+        let data = fs::read_to_string("database.json").unwrap();
+        let users: Vec<User> = serde_json::from_str(&data).unwrap();
+
+        self.store.extend(users);
     }
 }
 
@@ -56,37 +67,33 @@ mod tests {
     use super::*;
 
     #[test]
-    fn user_save() {
-        let user = User::new("leandro senior", "password");
-        user.save();
-
-        let store = DATABASE.lock().unwrap();
-
-        store.iter().for_each(|user| {
-            assert_eq!(user.username, "leandro senior");
-            assert_eq!(user.password, "password");
-        });
-    }
-
-    #[test]
     fn user_find_by_username() {
-        let user = User::new("leandro senior", "password");
-        user.save();
+        let mut repository = UsersRepository::new();
 
-        let user = User::find_by_username("leandro senior").unwrap();
+        let user = User::new("leandro", "password");
 
-        assert_eq!(user.username, "leandro senior");
+        repository.save(user);
+
+        let user = repository.find_by_username("leandro").unwrap();
+
+        assert_eq!(user.username, "leandro");
         assert_eq!(user.password, "password");
     }
 
     #[test]
     fn user_find_by_credentials() {
-        let user = User::new("leandro senior", "password");
-        user.save();
+        let mut repository = UsersRepository::new();
 
-        let user = User::find_by_credentials("leandro senior", "password").unwrap();
+        let user = User { 
+            username: "leandro".to_string(), 
+            password: "password".to_string() 
+        };
 
-        assert_eq!(user.username, "leandro senior");
+        repository.save(user);
+
+        let user = repository.find_by_credentials("leandro", "password").unwrap();
+
+        assert_eq!(user.username, "leandro");
         assert_eq!(user.password, "password");
     }
 }
