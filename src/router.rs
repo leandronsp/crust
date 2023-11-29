@@ -2,7 +2,7 @@ pub mod get {
     use std::fs;
 
     use crate::Request;
-    use crate::persistence::{UsersRepository};
+    use crate::persistence::UsersRepository;
 
     pub fn login(_request: Request) -> String {
         let mut response = String::new();
