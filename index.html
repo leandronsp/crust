@@ -1,4 +1,16 @@
-<h1>Hello, {{username}}</h1>
-<form action="/logout" method="POST">
-  <input type="submit" value="Logout" />
-</form>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="crust.css">
+  <link rel="stylesheet" href="header.css">
+</head>
+
+<div class="header">
+  <h1><a href="/">Yata</a></h1>
+  <div class="profile">
+    <p>Olá, {{username}}!</p>
+
+    <form class="logout" action="/logout" method="POST">
+      <input type="submit" value="Logout" />
+    </form>
+  </div>
+</div>

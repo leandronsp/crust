@@ -1,7 +1,23 @@
-<form method="POST" action="/login">
-  <input type="text" name="username" placeholder="Username" />
-  <input type="password" name="password" placeholder="Password" />
-  <input type="submit" value="Login" />
-</form>
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="crust.css">
+  <link rel="stylesheet" href="container.css">
+</head>
 
-<a href="/signup">Signup</a>
+<div class="container">
+  <h1><a href="/">Yata</a></h1>
+  <h4>Login</h4>
+
+  <form action="/login" method="POST">
+    <div class="field">
+      <input type="username" name="username" placeholder="Digite teu username associado à conta" />
+    </div>
+    <div class="field">
+      <input type="password" name="password" placeholder="Digite tua password" />
+    </div>
+    <div class="field">
+      <input type="submit" value="Entrar" />
+      ou <span><a href="/signup">Criar nova conta</a>
+    </div>
+  </form>
+</div>

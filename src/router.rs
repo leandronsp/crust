@@ -66,6 +66,16 @@ pub mod get {
         response
     }
 
+    pub fn second_lookup(request: Request) -> String {
+        let static_regex = regex::Regex::new(r"\/*.css$").unwrap();
+        
+        if let Some(_) =  static_regex.find(request.path.as_str()) {
+            serve_static_file(request.path.as_str().trim_start_matches("/"))
+        } else {
+            not_found()
+        }
+    }
+
     pub fn not_found() -> String {
         let mut response = String::new();
 
@@ -73,6 +83,19 @@ pub mod get {
 
         response.push_str("HTTP/1.1 404 Not Found\r\n");
         response.push_str("Content-Type: text/html\r\n");
+        response.push_str("\r\n");
+        response.push_str(&contents);
+
+        response
+    }
+
+    pub fn serve_static_file(filename: &str) -> String {
+        let mut response = String::new();
+
+        let contents = fs::read_to_string(filename).unwrap();
+
+        response.push_str("HTTP/1.1 200 OK\r\n");
+        response.push_str("Content-Type: text/css\r\n");
         response.push_str("\r\n");
         response.push_str(&contents);
 

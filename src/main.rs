@@ -69,7 +69,7 @@ fn handle_request(request: Request) -> String {
         ("POST", "/login") => router::post::login(request),
         ("POST", "/signup") => router::post::signup(request),
         ("POST", "/logout") => router::post::logout(request),
-        _ => router::get::not_found(),
+        _ => router::get::second_lookup(request),
     }
 }
 
