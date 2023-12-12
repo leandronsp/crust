@@ -4,26 +4,38 @@ pub mod get {
     use crate::Request;
     use crate::persistence::{UsersRepository, TasksRepository};
 
-    pub fn login(_request: Request) -> String {
+    pub fn login(request: Request) -> String {
         let mut response = String::new();
-
-        let contents = fs::read_to_string("src/views/html/login.html").unwrap();
 
         response.push_str("HTTP/1.1 200 OK\r\n");
         response.push_str("Content-Type: text/html\r\n");
+
+        let mut contents = fs::read_to_string("src/views/html/login.html").unwrap();
+
+        if let Some(message) = request.cookies.get("flash") {
+            contents = contents.replace("<y-flash/>", format!("<p class='flash'>{message}</p>").as_str());
+            response.push_str("Set-Cookie: flash=; Max-Age=0\r\n");
+        }
+
         response.push_str("\r\n");
         response.push_str(&contents);
 
         response
     }
 
-    pub fn signup(_request: Request) -> String {
+    pub fn signup(request: Request) -> String {
         let mut response = String::new();
 
-        let contents = fs::read_to_string("src/views/html/signup.html").unwrap();
+        let mut contents = fs::read_to_string("src/views/html/signup.html").unwrap();
 
         response.push_str("HTTP/1.1 200 OK\r\n");
         response.push_str("Content-Type: text/html\r\n");
+
+        if let Some(message) = request.cookies.get("flash") {
+            contents = contents.replace("<y-flash/>", format!("<p class='flash'>{message}</p>").as_str());
+            response.push_str("Set-Cookie: flash=; Max-Age=0\r\n");
+        }
+
         response.push_str("\r\n");
         response.push_str(&contents);
 
@@ -47,6 +59,7 @@ pub mod get {
                     let tasks_partial = 
                         tasks
                         .iter()
+                        .filter(|task| task.user_id == user.id)
                         .map(|task| {
                             format!("<div class='item'><p>{}</p><span class='material-icons' onclick='deleteTask(this)' data-task-id='{}'>delete</span></div>", task.name, task.id)
                         });
@@ -124,45 +137,58 @@ pub mod post {
 
     pub fn login(request: Request) -> String {
         let mut response = String::new();
+        let repository = UsersRepository::new();
 
         let username = request.params.get("username").unwrap();
         let password = request.params.get("password").unwrap();
 
-        let repository = UsersRepository::new();
-
-        let user = repository.find_by_credentials(username, password);
-
-        match user {
-            Some(user) => {
+        if let Some(user) = repository.find_by_username(username) {
+            if let Ok(true) = bcrypt::verify(password, user.password.as_str()) {
                 response.push_str("HTTP/1.1 301\r\n");
                 response.push_str("Location: /\r\n");
                 response.push_str(format!("Set-Cookie: username={}\r\n", user.username).as_str());
                 response.push_str("\r\n");
 
                 return response;
-            },
-            None => {
-                let contents = fs::read_to_string("src/views/html/401.html").unwrap();
-                response.push_str("HTTP/1.1 401 Unauthorized\r\n");
-                response.push_str("Content-Type: text/html\r\n");
-                response.push_str("Set-Cookie: username=; Max-Age=0\r\n");
-                response.push_str("\r\n");
-                response.push_str(&contents);
-
-                return response;
             }
         }
+
+        response.push_str("HTTP/1.1 301\r\n");
+        response.push_str("Set-Cookie: flash=Invalid Credentials\r\n");
+        response.push_str("Location: /login\r\n");
+        response.push_str("\r\n");
+
+        response
     }
 
     pub fn signup(request: Request) -> String {
         let mut response = String::new();
 
-        let user = User::new(
-            request.params.get("username").unwrap(),
-            request.params.get("password").unwrap(),
-        );
+        let username = request.params.get("username").unwrap();
+        let password = request.params.get("password").unwrap();
+        let password_confirmation = request.params.get("password_confirmation").unwrap();
+
+        if password != password_confirmation {
+            response.push_str("HTTP/1.1 301\r\n");
+            response.push_str("Set-Cookie: flash=Passwords do not match\r\n");
+            response.push_str("Location: /signup\r\n");
+            response.push_str("\r\n");
+
+            return response;
+        }
 
         let mut repository = UsersRepository::new();
+
+        let last_id = repository
+            .all()
+            .iter()
+            .fold(0, |acc, user| {
+                if user.id > acc { user.id } else { acc }
+            });
+
+        let encrypted_password = bcrypt::hash(password, 4).unwrap();
+        let user = User::new(last_id + 1, username, encrypted_password.as_str());
+
         repository.save(user);
 
         response.push_str("HTTP/1.1 301\r\n");
@@ -185,6 +211,11 @@ pub mod post {
 
     pub fn tasks(request: Request) -> String {
         let mut response = String::new();
+        let users_repository = UsersRepository::new();
+
+        let username = request.cookies.get("username").unwrap();
+        let current_user = users_repository.find_by_username(username).unwrap();
+
         let mut repository = TasksRepository::new();
 
         let last_id = repository
@@ -196,6 +227,7 @@ pub mod post {
 
         let task = Task::new(
             last_id + 1,
+            current_user.id,
             request.params.get("name").unwrap(),
         );
 
@@ -205,6 +237,7 @@ pub mod post {
 
         let body = tasks
             .iter()
+            .filter(|task| task.user_id == current_user.id)
             .map(|task| {
                 format!("<div class='item'><p>{}</p><span class='material-icons' onclick='deleteTask(this)' data-task-id='{}'>delete</span></div>", task.name, task.id)
             });

@@ -8,6 +8,7 @@
 <div class="container">
   <h1><a href="/">Yata</a></h1>
   <h4>Criar nova conta</h4>
+  <y-flash/>
 
   <form action="/signup" method="POST">
     <div class="field">
@@ -15,6 +16,9 @@
     </div>
     <div class="field">
       <input type="password" name="password" placeholder="Digite uma password para sua conta" />
+    </div>
+    <div class="field">
+      <input type="password" name="password_confirmation" placeholder="Confirmar sua password" />
     </div>
     <div class="field">
       <input type="submit" value="Criar" />

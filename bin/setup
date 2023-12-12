@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Create the database files
+echo '[]' > users.json
+echo '[]' > tasks.json

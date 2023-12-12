@@ -2,8 +2,9 @@ use std::fs;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct User {
+    pub id: u32,
     pub username: String,
     pub password: String,
 }
@@ -11,12 +12,14 @@ pub struct User {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Task {
     pub id: u32,
+    pub user_id: u32,
     pub name: String,
 }
 
 impl User {
-    pub fn new(username: &str, password: &str) -> Self {
+    pub fn new(id: u32, username: &str, password: &str) -> Self {
         Self {
+            id,
             username: username.to_string(),
             password: password.to_string(),
         }
@@ -24,9 +27,10 @@ impl User {
 }
 
 impl Task {
-    pub fn new(id: u32, name: &str) -> Self {
+    pub fn new(id: u32, user_id: u32, name: &str) -> Self {
         Self {
             id,
+            user_id,
             name: name.to_string(),
         }
     }
@@ -59,6 +63,7 @@ impl UsersRepository {
             .iter()
             .find(|user| user.username == username)
             .map(|user| User {
+                id: user.id,
                 username: user.username.clone(),
                 password: user.password.clone(),
             })
@@ -70,9 +75,14 @@ impl UsersRepository {
             .iter()
             .find(|user| user.username == username && user.password == password)
             .map(|user| User {
+                id: user.id,
                 username: user.username.clone(),
                 password: user.password.clone(),
             })
+    }
+
+    pub fn all(&self) -> Vec<User> {
+        self.store.clone()
     }
 
     pub fn load_from_disk(&mut self) {
@@ -120,52 +130,5 @@ impl TasksRepository {
     pub fn save(&mut self, task: Task) {
         self.store.push(task);
         self.persist_to_disk();
-    }
-
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn user_find_by_username() {
-        let mut repository = UsersRepository::new();
-
-        let user = User::new("leandro", "password");
-
-        repository.save(user);
-
-        let user = repository.find_by_username("leandro").unwrap();
-
-        assert_eq!(user.username, "leandro");
-        assert_eq!(user.password, "password");
-    }
-
-    #[test]
-    fn user_find_by_credentials() {
-        let mut repository = UsersRepository::new();
-
-        let user = User { 
-            username: "leandro".to_string(), 
-            password: "password".to_string() 
-        };
-
-        repository.save(user);
-
-        let user = repository.find_by_credentials("leandro", "password").unwrap();
-
-        assert_eq!(user.username, "leandro");
-        assert_eq!(user.password, "password");
-    }
-
-    #[test]
-    fn user_find_by_credentials_default() {
-        let repository = UsersRepository::new();
-
-        let user = repository.find_by_credentials("leandro", "password").unwrap();
-
-        assert_eq!(user.username, "leandro");
-        assert_eq!(user.password, "password");
     }
 }

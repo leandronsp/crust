@@ -18,6 +18,7 @@ Rust
 ## Running
 
 ```bash
+$ bin/setup
 $ cargo run
 
 # Or using cargo watch
