@@ -8,6 +8,12 @@ pub struct User {
     pub password: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct Task {
+    pub id: u32,
+    pub name: String,
+}
+
 impl User {
     pub fn new(username: &str, password: &str) -> Self {
         Self {
@@ -17,8 +23,21 @@ impl User {
     }
 }
 
+impl Task {
+    pub fn new(id: u32, name: &str) -> Self {
+        Self {
+            id,
+            name: name.to_string(),
+        }
+    }
+}
+
 pub struct UsersRepository {
     pub store: Vec<User>,
+}
+
+pub struct TasksRepository {
+    pub store: Vec<Task>,
 }
 
 impl UsersRepository {
@@ -57,7 +76,7 @@ impl UsersRepository {
     }
 
     pub fn load_from_disk(&mut self) {
-        let data = fs::read_to_string("database.json").unwrap();
+        let data = fs::read_to_string("users.json").unwrap();
         let users: Vec<User> = serde_json::from_str(&data).unwrap();
 
         self.store.extend(users);
@@ -65,8 +84,44 @@ impl UsersRepository {
 
     pub fn persist_to_disk(&self) {
         let data = serde_json::to_string(&self.store).unwrap();
-        fs::write("database.json", data).unwrap();
+        fs::write("users.json", data).unwrap();
     }
+}
+
+impl TasksRepository {
+    pub fn new() -> Self {
+        let mut repository = Self { store: Vec::new() };
+        repository.load_from_disk();
+
+        repository
+    }
+
+    pub fn load_from_disk(&mut self) {
+        let data = fs::read_to_string("tasks.json").unwrap();
+        let tasks: Vec<Task> = serde_json::from_str(&data).unwrap();
+
+        self.store.extend(tasks);
+    }
+
+    pub fn persist_to_disk(&self) {
+        let data = serde_json::to_string(&self.store).unwrap();
+        fs::write("tasks.json", data).unwrap();
+    }
+
+    pub fn delete(&mut self, id: u32) {
+        self.store.retain(|task| task.id != id); // delete on memory
+        self.persist_to_disk();
+    }
+
+    pub fn all(&self) -> Vec<Task> {
+        self.store.clone()
+    }
+
+    pub fn save(&mut self, task: Task) {
+        self.store.push(task);
+        self.persist_to_disk();
+    }
+
 }
 
 #[cfg(test)]
