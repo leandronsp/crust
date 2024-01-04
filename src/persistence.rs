@@ -1,6 +1,6 @@
-use std::fs;
 use serde::Deserialize;
 use serde::Serialize;
+use std::fs;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct User {
@@ -62,18 +62,6 @@ impl UsersRepository {
         self.store
             .iter()
             .find(|user| user.username == username)
-            .map(|user| User {
-                id: user.id,
-                username: user.username.clone(),
-                password: user.password.clone(),
-            })
-    }
-
-    pub fn find_by_credentials(&self, username: &str, password: &str) -> Option<User> {
-        // Full-table scan
-        self.store
-            .iter()
-            .find(|user| user.username == username && user.password == password)
             .map(|user| User {
                 id: user.id,
                 username: user.username.clone(),

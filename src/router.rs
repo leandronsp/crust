@@ -131,9 +131,7 @@ pub mod get {
 }
 
 pub mod post {
-    use std::fs;
-    use crate::Request;
-    use crate::persistence::{User, UsersRepository, TasksRepository, Task};
+    use crate::{persistence::{User, UsersRepository, TasksRepository, Task}, Request};
 
     pub fn login(request: Request) -> String {
         let mut response = String::new();

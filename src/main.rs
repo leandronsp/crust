@@ -2,9 +2,9 @@ mod router;
 pub(crate) mod persistence;
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     io::{prelude::*, BufReader},
-    net::{TcpListener, TcpStream},
+    net::{TcpListener, TcpStream}, sync::{Mutex, Condvar, Arc}, thread,
 };
 
 use regex::Regex;
@@ -32,15 +32,58 @@ impl Request {
     }
 }
 
+struct Channel<T> {
+    store: Mutex<VecDeque<T>>,
+    emitter: Condvar,
+}
+
+impl<T> Channel<T> {
+    fn new() -> Channel<T> {
+        Channel {
+            store: Mutex::new(VecDeque::new()),
+            emitter: Condvar::new(),
+        }
+    }
+
+    fn send(&self, data: T) {
+        self.store.lock().unwrap().push_back(data);
+        self.emitter.notify_one();
+    }
+
+    fn recv(&self) -> Option<T> {
+        let mut store = self.store.lock().unwrap();
+
+        while store.is_empty() {
+            store = self.emitter.wait(store).unwrap();
+        }
+
+        store.pop_front()
+    }
+}
+
 fn main() {
     let listener = TcpListener::bind("localhost:3000").unwrap();
 
     println!("Server listening on port 3000");
 
+    let channel = Arc::new(Channel::new());
+
+    // Thread Pool
+    (0..4).for_each(|_| {
+        let channel = channel.clone();
+
+        thread::spawn(move || {
+            loop {
+                let stream = channel.recv().unwrap(); 
+                handle_connection(stream);
+            }
+        });
+    });
+
+    // Accept connections 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
-
-        handle_connection(stream);
+        channel.send(stream);
     }
 }
 
@@ -64,15 +107,6 @@ fn handle_connection(mut stream: TcpStream) {
 }
 
 fn handle_request(mut request: Request) -> String {
-    // Apply route constaints
-    // verb: GET, POST, PUT, DELETE
-    // path: /tasks/:id, replace "42" to ":id" and inject into the request.params
-    // parts: tasks, (42), groups, (dashboard), report
-    // match (verb, path) {
-
-    // /tasks/42 -> /tasks/:id
-    // request.params["id"] = 42
-
     let verb = request.verb.as_str();
     let mut path = request.path.clone();
 
